@@ -2,42 +2,127 @@ package dao;
 
 import dao.model.Reaction;
 import reactions.ReactionType;
+import sorteddata.LazySortedData;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * DAO for managing reactions using the DAO design pattern.
+ *
+ * On top of the inherited SortedData store (kept in sync for the DAO contract),
+ * this DAO maintains secondary indexes so that every operation stays fast even
+ * with a million reactions on a single message:
+ *  - a HashMap keyed by the (user, message, type) identity for O(1) existence
+ *    checks, relying on Reaction.equals/hashCode;
+ *  - per (user, message) buckets kept sorted by timestamp, so
+ *    getReactionsByUser returns chronological order without re-sorting;
+ *  - per message insertion-ordered lists, so getReactionsOnMessage only pays
+ *    for a sort when it is actually called.
+ */
 public class ReactionDAO extends DAO<Reaction> {
     private static ReactionDAO instance;
 
+    private record UserMessageKey(UUID userUUID, UUID messageUUID) {}
+
+    private final Map<Reaction, Reaction> index = new HashMap<>();
+    private final Map<UserMessageKey, ArrayList<Reaction>> byUserMessage = new HashMap<>();
+    private final Map<UUID, ArrayList<Reaction>> byMessage = new HashMap<>();
+
     private ReactionDAO() {
         super(ReactionComparator.getInstance());
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.data = new LazySortedData<>(comparator);
     }
 
     public static ReactionDAO getInstance() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (instance == null) {
+            instance = new ReactionDAO();
+        }
+        return instance;
+    }
+
+    @Override
+    public void clear() {
+        super.clear();
+        this.data = new LazySortedData<>(comparator);
+        index.clear();
+        byUserMessage.clear();
+        byMessage.clear();
     }
 
     public boolean addReaction(UUID userUUID, UUID messageUUID, ReactionType type, long timestamp) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        Reaction reaction = new Reaction(userUUID, messageUUID, type, timestamp);
+        if (index.putIfAbsent(reaction, reaction) != null) {
+            return false; // this user already left this type of reaction on this message
+        }
+
+        data.insert(reaction);
+
+        UserMessageKey key = new UserMessageKey(userUUID, messageUUID);
+        ArrayList<Reaction> bucket = byUserMessage.computeIfAbsent(key, k -> new ArrayList<>());
+        bucket.add(upperBound(bucket, timestamp), reaction);
+
+        byMessage.computeIfAbsent(messageUUID, k -> new ArrayList<>()).add(reaction);
+
+        return true;
     }
 
     public boolean removeReaction(UUID userUUID, UUID messageUUID, ReactionType type) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        Reaction removed = index.remove(new Reaction(userUUID, messageUUID, type));
+        if (removed == null) {
+            return false;
+        }
+
+        ((LazySortedData<Reaction>) data).remove(removed);
+
+        ArrayList<Reaction> bucket = byUserMessage.get(new UserMessageKey(userUUID, messageUUID));
+        if (bucket != null) bucket.remove(removed);
+
+        ArrayList<Reaction> messageReactions = byMessage.get(messageUUID);
+        if (messageReactions != null) messageReactions.remove(removed);
+
+        return true;
     }
 
     public List<ReactionType> getReactionsByUser(UUID userUUID, UUID messageUUID) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        ArrayList<Reaction> bucket = byUserMessage.get(new UserMessageKey(userUUID, messageUUID));
+        List<ReactionType> reactionTypes = new ArrayList<>();
+        if (bucket != null) {
+            for (Reaction reaction : bucket) {
+                reactionTypes.add(reaction.type());
+            }
+        }
+        return reactionTypes;
     }
 
     public List<Reaction> getReactionsOnMessage(UUID messageUUID) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        ArrayList<Reaction> messageReactions = byMessage.get(messageUUID);
+        List<Reaction> reactions = new ArrayList<>();
+        if (messageReactions != null) {
+            // stable sort: equal timestamps keep insertion order
+            reactions = new ArrayList<>(messageReactions);
+            reactions.sort(Comparator.comparingLong(Reaction::timestamp));
+        }
+        return reactions;
     }
 
     public boolean hasReaction(UUID userUUID, UUID messageUUID, ReactionType type) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return index.containsKey(new Reaction(userUUID, messageUUID, type));
+    }
+
+    // Index of the first element with a timestamp strictly greater than the given one,
+    // so equal timestamps keep insertion order (stable)
+    private static int upperBound(ArrayList<Reaction> bucket, long timestamp) {
+        int lo = 0, hi = bucket.size();
+        while (lo < hi) {
+            int mid = (lo + hi) / 2;
+            if (bucket.get(mid).timestamp() <= timestamp) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
     }
 }
-

@@ -24,7 +24,9 @@ import java.util.Comparator;
 //#WEEK END
 public class SortedDataFactory {
     public static <T> SortedData<T> makeSortedData(Comparator<T> comparator) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        // TreeMap-backed storage: insertion and lookup stay O(log n) even with
+        // hundreds of thousands of elements, unlike SortedArrayList's O(n) insert
+        return new TreeMapSortedData<>(comparator);
     }
 }
 

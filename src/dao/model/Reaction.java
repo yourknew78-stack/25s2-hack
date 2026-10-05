@@ -8,30 +8,35 @@ public record Reaction(UUID userUUID, UUID messageUUID, ReactionType type, long 
 
     public Reaction(UUID userUUID, UUID messageUUID, ReactionType type) {
         this(userUUID, messageUUID, type, 0L);
-        throw new UnsupportedOperationException("TODO: 待实现");
     }
 
     @Override
     public UUID getUUID() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        // Deterministic composite ID: a reaction is identified by user + message + type
+        String combined = userUUID.toString() + messageUUID.toString() + type.name();
+        return UUID.nameUUIDFromBytes(combined.getBytes());
     }
 
     @Override
     public boolean equals(Object obj) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Reaction reaction = (Reaction) obj;
+        return userUUID.equals(reaction.userUUID) &&
+                messageUUID.equals(reaction.messageUUID) &&
+                type == reaction.type;
     }
 
     @Override
     public int hashCode() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return userUUID.hashCode() + messageUUID.hashCode() + type.hashCode();
     }
 
     public boolean isByUser(UUID userUUID) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return this.userUUID.equals(userUUID);
     }
 
     public boolean isOnMessage(UUID messageUUID) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return this.messageUUID.equals(messageUUID);
     }
 }
-

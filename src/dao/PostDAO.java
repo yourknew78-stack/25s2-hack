@@ -15,7 +15,6 @@ public class PostDAO extends DAO<Post> {
      */
     private PostDAO() {
         super(Comparator.comparing(HasUUID::getUUID));
-        throw new UnsupportedOperationException("TODO: 待实现");
     }
     private static PostDAO instance;
 
@@ -24,7 +23,8 @@ public class PostDAO extends DAO<Post> {
      * @return the instance
      */
     public static PostDAO getInstance() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (instance == null) instance = new PostDAO();
+        return instance;
     }
 
     /**
@@ -33,7 +33,7 @@ public class PostDAO extends DAO<Post> {
      * @return the post
      */
     public Post getAtIndex(int i) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return data.getAtIndex(i);
     }
 
     /**
@@ -42,7 +42,37 @@ public class PostDAO extends DAO<Post> {
      * @return the iterator
      */
     public Iterator<Message> getAllMessages() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new Iterator<>() {
+            private final Iterator<Post> postIterator = getAll();
+            private Iterator<Message> currentPost = null;
+            private Message next = null;
+            {
+                goNext();
+            }
+
+            private void goNext() {
+                while (currentPost == null || !currentPost.hasNext()) {
+                    if (postIterator.hasNext())
+                        currentPost = postIterator.next().messages.getAll();
+                    else {
+                        next = null;
+                        return;
+                    }
+                }
+                next = currentPost.next();
+            }
+
+            @Override
+            public boolean hasNext() {
+                return next != null;
+            }
+
+            @Override
+            public Message next() {
+                Message thisOne = next;
+                goNext();
+                return thisOne;
+            }
+        };
     }
 }
-

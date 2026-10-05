@@ -13,16 +13,17 @@ public class Post implements HasUUID {
     public final SortedData<Message> messages;
 
     public Post(UUID id, UUID poster, String topic) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.id = id;
+        this.poster = poster;
+        this.topic = topic;
+        this.messages = SortedDataFactory.makeSortedData(MessageComparator.getInstance());
     }
 
     public Post(UUID id) {
         this(id, null, null);
-        throw new UnsupportedOperationException("TODO: 待实现");
     }
 
     public UUID getUUID() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return id;
     }
 }
-

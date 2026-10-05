@@ -6,14 +6,30 @@ import dao.PostDAO;
 import dao.model.Message;
 import persistentdata.DataManager;
 
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class ReactionsFacade {
-    private static ReactionDAO reactionDAO;
-    private static UserDAO userDAO;
-    private static PostDAO postDAO;
+    private static ReactionDAO reactionDAO = ReactionDAO.getInstance();
+    private static UserDAO userDAO = UserDAO.getInstance();
+    private static PostDAO postDAO = PostDAO.getInstance();
     private static DataManager dataManager;
+
+    // Cache of message IDs known to exist; rebuilt by a full scan on a cache miss.
+    // Messages are never deleted, so entries never become stale.
+    private static final Set<UUID> knownMessageIds = new HashSet<>();
+
+    private static boolean messageExists(UUID messageUUID) {
+        if (messageUUID == null) return false;
+        if (knownMessageIds.contains(messageUUID)) return true;
+        for (Iterator<Message> it = postDAO.getAllMessages(); it.hasNext(); ) {
+            knownMessageIds.add(it.next().id());
+        }
+        return knownMessageIds.contains(messageUUID);
+    }
 
     /**
      * Adds a reaction by a particular user of a particular type to a particular message.
@@ -21,7 +37,10 @@ public class ReactionsFacade {
      * Users may have an arbitrary number of reactions on a single message, but only one of a given type.
      */
     public static boolean addReaction(UUID userUUID, UUID messageUUID, ReactionType type, long timestamp) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (userUUID == null || messageUUID == null || type == null) return false;
+        if (userDAO.getByUUID(userUUID) == null) return false;
+        if (!messageExists(messageUUID)) return false;
+        return reactionDAO.addReaction(userUUID, messageUUID, type, timestamp);
     }
 
     /**
@@ -29,7 +48,10 @@ public class ReactionsFacade {
      * Returns true if the reaction was successfully removed, and false otherwise.
      */
     public static boolean removeReaction(UUID userUUID, UUID messageUUID, ReactionType type) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (userUUID == null || messageUUID == null || type == null) return false;
+        if (userDAO.getByUUID(userUUID) == null) return false;
+        if (!messageExists(messageUUID)) return false;
+        return reactionDAO.removeReaction(userUUID, messageUUID, type);
     }
 
     /**
@@ -38,7 +60,10 @@ public class ReactionsFacade {
      * They must be returned in chronological (time-based) order, from oldest to newest.
      */
     public static List<ReactionType> getReactions(UUID userUUID, UUID messageUUID) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (userUUID == null || messageUUID == null) return null;
+        if (userDAO.getByUUID(userUUID) == null) return null;
+        if (!messageExists(messageUUID)) return null;
+        return reactionDAO.getReactionsByUser(userUUID, messageUUID);
     }
 
     /**
@@ -48,4 +73,3 @@ public class ReactionsFacade {
         throw new UnsupportedOperationException("TODO: 待实现");
     }
 }
-
