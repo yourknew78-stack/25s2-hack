@@ -10,12 +10,17 @@ import java.util.UUID;
 public class UserSerializer implements Serializer<User, String[]> {
     @Override
     public String[] serialize(User object) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new String[] {
+                object.id().toString(),
+                object.role().name(),
+                object.username(),
+                object.password()
+        };
     }
 
     @Override
     public User deserialize(String[] data) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new User(UUID.fromString(data[0]), User.Role.valueOf(data[1]), data[2], data[3]);
     }
 }
 

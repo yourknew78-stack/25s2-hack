@@ -15,14 +15,32 @@ public class DataPipeline<T, S> {
     private final String filename;
 
     public DataPipeline(IOFactory ioFactory, FormattedFactory<S> formattedFactory, Serializer<T, S> serializer, String filename) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.ioFactory = ioFactory;
+        this.formattedFactory = formattedFactory;
+        this.serializer = serializer;
+        this.filename = filename;
     }
 
     private static UserDAO users;
     private static PostDAO posts;
 
     public void writeFrom(Iterator<T> iterator) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (iterator == null) return;
+        Writer writer = ioFactory.writer(filename);
+        if (writer == null) return;
+        try {
+            FormattedWriter<S> formattedWriter = formattedFactory.writer(writer);
+            formattedWriter.putHeader();
+            while (iterator.hasNext()) {
+                formattedWriter.putNext(serializer.serialize(iterator.next()));
+            }
+            formattedWriter.putFooter();
+        } finally {
+            try {
+                writer.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     public interface AddToDAO<T> {
@@ -30,7 +48,19 @@ public class DataPipeline<T, S> {
     }
 
     public void readTo(AddToDAO<T> callback) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (callback == null) return;
+        Reader reader = ioFactory.reader(filename);
+        if (reader == null) return;
+        try {
+            FormattedReader<S> formattedReader = formattedFactory.reader(reader);
+            while (formattedReader.hasNext()) {
+                callback.run(serializer.deserialize(formattedReader.getNext()));
+            }
+        } finally {
+            try {
+                reader.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 }
-

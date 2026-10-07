@@ -12,7 +12,10 @@ public final class CSVFormat {
     public final int COLUMN_COUNT;
 
     public CSVFormat(char fieldSeparator, char lineSeparator, char escapeMarker, int columnCount) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.FIELD_SEPARATOR = fieldSeparator;
+        this.LINE_SEPARATOR = lineSeparator;
+        this.ESCAPE_MARKER = escapeMarker;
+        this.COLUMN_COUNT = columnCount;
     }
 
     /**
@@ -25,7 +28,5 @@ public final class CSVFormat {
      */
     public CSVFormat(int columnCount) {
         this(',', '\n', '"', columnCount);
-        throw new UnsupportedOperationException("TODO: 待实现");
     }
 }
-

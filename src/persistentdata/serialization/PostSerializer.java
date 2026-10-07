@@ -12,12 +12,16 @@ public class PostSerializer implements Serializer<Post, String[]> {
 
     @Override
     public String[] serialize(Post object) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new String[] {
+                object.id.toString(),
+                object.poster.toString(),
+                object.topic
+        };
     }
 
     @Override
     public Post deserialize(String[] data) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new Post(UUID.fromString(data[0]), UUID.fromString(data[1]), data[2]);
     }
 }
 

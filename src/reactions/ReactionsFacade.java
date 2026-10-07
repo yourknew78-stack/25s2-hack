@@ -4,6 +4,7 @@ import dao.ReactionDAO;
 import dao.UserDAO;
 import dao.PostDAO;
 import dao.model.Message;
+import dao.model.Reaction;
 import persistentdata.DataManager;
 
 import java.util.HashSet;
@@ -40,7 +41,14 @@ public class ReactionsFacade {
         if (userUUID == null || messageUUID == null || type == null) return false;
         if (userDAO.getByUUID(userUUID) == null) return false;
         if (!messageExists(messageUUID)) return false;
-        return reactionDAO.addReaction(userUUID, messageUUID, type, timestamp);
+        if (!reactionDAO.addReaction(userUUID, messageUUID, type, timestamp)) return false;
+        try {
+            DataManager.getInstance().reactionAdded(userUUID, messageUUID, type, timestamp);
+            return true;
+        } catch (RuntimeException e) {
+            reactionDAO.removeReaction(userUUID, messageUUID, type);
+            return false;
+        }
     }
 
     /**
@@ -51,7 +59,16 @@ public class ReactionsFacade {
         if (userUUID == null || messageUUID == null || type == null) return false;
         if (userDAO.getByUUID(userUUID) == null) return false;
         if (!messageExists(messageUUID)) return false;
-        return reactionDAO.removeReaction(userUUID, messageUUID, type);
+        Reaction removed = reactionDAO.get(new Reaction(userUUID, messageUUID, type));
+        if (removed == null) return false;
+        if (!reactionDAO.removeReaction(userUUID, messageUUID, type)) return false;
+        try {
+            DataManager.getInstance().reactionRemoved(userUUID, messageUUID, type);
+            return true;
+        } catch (RuntimeException e) {
+            reactionDAO.addReaction(userUUID, messageUUID, type, removed.timestamp());
+            return false;
+        }
     }
 
     /**
@@ -70,6 +87,7 @@ public class ReactionsFacade {
      * Loads all persistent data (users, messages, posts, and importantly reactions) from persistent data.
      */
     public static void loadPersistentData() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        knownMessageIds.clear();
+        DataManager.getInstance().readAll();
     }
 }

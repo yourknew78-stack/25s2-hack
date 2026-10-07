@@ -7,17 +7,16 @@ public class CSVFormattedFactory implements FormattedFactory<String[]> {
     private final CSVFormat format;
 
     public CSVFormattedFactory(CSVFormat format) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.format = format;
     }
 
     @Override
     public FormattedWriter<String[]> writer(Writer documentWriter) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new CSVWriter(format, documentWriter);
     }
 
     @Override
     public FormattedReader<String[]> reader(Reader documentReader) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new CSVReader(format, documentReader);
     }
 }
-
