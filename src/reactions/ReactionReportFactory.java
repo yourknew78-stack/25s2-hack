@@ -5,7 +5,9 @@ package reactions;
  */
 public class ReactionReportFactory {
     public static IReactionReporter buildReporter(String type) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if ("oldest".equalsIgnoreCase(type)) return new OldestReactionReporter();
+        if ("overview".equalsIgnoreCase(type)) return new OverviewReactionReporter();
+        throw new IllegalArgumentException("Unknown reaction report type: " + type);
     }
 }
 
