@@ -8,46 +8,71 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
-/** Bounded summaries of current reactions on one message, maintained by ReactionDAO. */
+/**
+ * Incremental Task 2 summaries for one message, maintained by ReactionDAO.
+ * Counts cover every current reaction; report candidates are bounded to five.
+ * Oldest candidates represent distinct users. Overview candidates represent
+ * distinct types, ranked by descending count then earliest current timestamp.
+ * Reads return copies so callers cannot change the maintained summaries.
+ */
 final class ReactionReportIndex {
-    private static final int LIMIT = 5;
-    private static final Comparator<Reaction> BY_TIME = Comparator.comparingLong(Reaction::timestamp);
+    private static final int MAX_REPORT_REACTIONS = 5;
+    private static final Comparator<Reaction> BY_TIMESTAMP = Comparator.comparingLong(Reaction::timestamp);
 
     private final int[] counts = new int[ReactionType.values().length];
     private final Reaction[] earliest = new Reaction[counts.length];
-    private final List<Reaction> oldest = new ArrayList<>(LIMIT);
-    private final List<Reaction> overview = new ArrayList<>(LIMIT);
+    private final List<Reaction> oldest = new ArrayList<>(MAX_REPORT_REACTIONS);
+    private final List<Reaction> overview = new ArrayList<>(MAX_REPORT_REACTIONS);
 
+    /** Called once per newly stored reaction; duplicate identities are rejected by the DAO. */
     void add(Reaction reaction) {
-        int type = reaction.type().ordinal();
-        counts[type]++;
-        if (earliest[type] == null || reaction.timestamp() < earliest[type].timestamp()) {
-            earliest[type] = reaction;
+        int typeIndex = reaction.type().ordinal();
+        counts[typeIndex]++;
+        if (earliest[typeIndex] == null || reaction.timestamp() < earliest[typeIndex].timestamp()) {
+            earliest[typeIndex] = reaction;
         }
         considerOldest(reaction);
         rankOverview();
     }
 
+    /**
+     * Removes a stored reaction after the DAO has removed it from the message list.
+     * The supplied collection contains exactly the remaining reactions; cached
+     * counts and candidates are restored before this method returns.
+     */
     void remove(Reaction reaction, Collection<Reaction> remaining) {
-        int type = reaction.type().ordinal();
-        counts[type]--;
-        boolean replaceEarliest = reaction == earliest[type];
+        int typeIndex = reaction.type().ordinal();
+        counts[typeIndex]--;
+        boolean replaceEarliest = reaction == earliest[typeIndex];
         boolean replaceOldest = oldest.contains(reaction);
-        if (replaceEarliest) earliest[type] = null;
-        if (replaceOldest) oldest.clear();
+        if (replaceEarliest) {
+            earliest[typeIndex] = null;
+        }
+        if (replaceOldest) {
+            oldest.clear();
+        }
 
-        // Task 1 already removes from a message list in O(n). Refill only when a
-        // summary loses its candidate, reusing that list rather than another store.
         if (replaceEarliest || replaceOldest) {
-            for (Reaction current : remaining) {
-                if (replaceOldest) considerOldest(current);
-                if (replaceEarliest && current.type() == reaction.type()
-                        && (earliest[type] == null || current.timestamp() < earliest[type].timestamp())) {
-                    earliest[type] = current;
-                }
-            }
+            rebuildRemovedCandidates(reaction.type(), remaining, replaceEarliest, replaceOldest);
         }
         rankOverview();
+    }
+
+    /** Reuses the remaining message data only when a cached candidate was removed. */
+    private void rebuildRemovedCandidates(ReactionType removedType,
+                                          Collection<Reaction> remaining,
+                                          boolean replaceEarliest, boolean replaceOldest) {
+        int typeIndex = removedType.ordinal();
+        for (Reaction current : remaining) {
+            if (replaceOldest) {
+                considerOldest(current);
+            }
+            if (replaceEarliest && current.type() == removedType
+                    && (earliest[typeIndex] == null
+                    || current.timestamp() < earliest[typeIndex].timestamp())) {
+                earliest[typeIndex] = current;
+            }
+        }
     }
 
     private void considerOldest(Reaction reaction) {
@@ -56,32 +81,36 @@ final class ReactionReportIndex {
             if (candidate.userUUID().equals(reaction.userUUID())) {
                 if (reaction.timestamp() < candidate.timestamp()) {
                     oldest.set(i, reaction);
-                    oldest.sort(BY_TIME);
+                    oldest.sort(BY_TIMESTAMP);
                 }
                 return;
             }
         }
-        if (oldest.size() < LIMIT) {
+        if (oldest.size() < MAX_REPORT_REACTIONS) {
             oldest.add(reaction);
-        } else if (reaction.timestamp() < oldest.get(LIMIT - 1).timestamp()) {
-            oldest.set(LIMIT - 1, reaction);
+        } else if (reaction.timestamp() < oldest.get(MAX_REPORT_REACTIONS - 1).timestamp()) {
+            oldest.set(MAX_REPORT_REACTIONS - 1, reaction);
         } else {
             return;
         }
-        oldest.sort(BY_TIME);
+        oldest.sort(BY_TIMESTAMP);
     }
 
     private void rankOverview() {
         overview.clear();
         for (Reaction reaction : earliest) {
-            if (reaction == null) continue;
+            if (reaction == null) {
+                continue;
+            }
             int position = 0;
             while (position < overview.size() && !precedes(reaction, overview.get(position))) {
                 position++;
             }
-            if (position < LIMIT) {
+            if (position < MAX_REPORT_REACTIONS) {
                 overview.add(position, reaction);
-                if (overview.size() > LIMIT) overview.remove(LIMIT);
+                if (overview.size() > MAX_REPORT_REACTIONS) {
+                    overview.remove(MAX_REPORT_REACTIONS);
+                }
             }
         }
     }

@@ -3,9 +3,15 @@ package reactions;
 import dao.model.Reaction;
 import dao.model.Message;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
+/** Displays up to five leading reaction types, labelled by their complete counts. */
 public class OverviewReactionReporter extends AbstractReactionReporter {
+
+    /** Creates a reporter using the shared incremental reaction index. */
+    public OverviewReactionReporter() {}
 
     @Override
     protected Collection<Reaction> selectReactions(Message message) {
@@ -22,11 +28,4 @@ public class OverviewReactionReporter extends AbstractReactionReporter {
         return tags;
     }
 
-    @Override
-    protected Comparator<ReactionDisplayTag> ordering() {
-        // Stable sorting retains the earliest-current order for equal counts.
-        return Comparator.comparingInt((ReactionDisplayTag tag) -> Integer.parseInt(tag.label()))
-                .reversed();
-    }
 }
-

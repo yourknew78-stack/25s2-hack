@@ -4,9 +4,15 @@ import dao.model.Reaction;
 import dao.model.Message;
 import dao.model.User;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
+/** Displays up to five oldest reactions from distinct users, labelled by username. */
 public class OldestReactionReporter extends AbstractReactionReporter {
+
+    /** Creates a reporter using the shared reaction and user stores. */
+    public OldestReactionReporter() {}
 
     @Override
     protected Collection<Reaction> selectReactions(Message message) {
@@ -23,9 +29,4 @@ public class OldestReactionReporter extends AbstractReactionReporter {
         return tags;
     }
 
-    @Override
-    protected Comparator<ReactionDisplayTag> ordering() {
-        return super.ordering();
-    }
 }
-
