@@ -10,16 +10,20 @@ public class SortedArrayListIterator<T> implements Iterator<T> {
     private int count;
 
     public SortedArrayListIterator(ArrayList<T> data, Comparator<T> comparator, T from, int count) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.data = data;
+        this.index = 0;
+        if (from != null)
+            while (index < data.size() && comparator.compare(from, data.get(index)) > 0) index++;
+        this.count = count;
     }
     @Override
     public boolean hasNext() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return index < data.size() && count != 0;
     }
 
     @Override
     public T next() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        count--;
+        return data.get(index++);
     }
 }
-

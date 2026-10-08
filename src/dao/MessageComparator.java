@@ -14,11 +14,10 @@ public class MessageComparator implements Comparator<Message> {
      * @return the instance
      */
     public static MessageComparator getInstance() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        if (instance == null) instance = new MessageComparator();
+        return instance;
     }
-    private MessageComparator() {
-        throw new UnsupportedOperationException("TODO: 待实现");
-    }
+    private MessageComparator() {}
 
     /**
      * Checks if two Messages are identical in these fields: timestamp, thread, poster, and ID.
@@ -28,6 +27,16 @@ public class MessageComparator implements Comparator<Message> {
      */
     @Override
     public int compare(Message o1, Message o2) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        int delta = Long.compare(o1.timestamp(), o2.timestamp());
+        if (delta != 0) return delta;
+
+        delta = o1.thread().compareTo(o2.thread());
+        if (delta != 0) return delta;
+
+        delta = o1.poster().compareTo(o2.poster());
+        if (delta != 0) return delta;
+
+        delta = o1.id().compareTo(o2.id());
+        return delta;
     }
 }

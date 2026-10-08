@@ -9,12 +9,22 @@ public class ReactionSerializer implements Serializer<Reaction, String[]> {
 
     @Override
     public String[] serialize(Reaction object) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new String[] {
+                object.userUUID().toString(),
+                object.messageUUID().toString(),
+                object.type().name(),
+                Long.toString(object.timestamp())
+        };
     }
 
     @Override
     public Reaction deserialize(String[] data) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new Reaction(
+                UUID.fromString(data[0]),
+                UUID.fromString(data[1]),
+                ReactionType.valueOf(data[2]),
+                Long.parseLong(data[3])
+        );
     }
 }
 

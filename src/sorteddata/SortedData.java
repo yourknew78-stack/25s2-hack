@@ -50,7 +50,7 @@ public abstract class SortedData<T> {
      * @apiNote equivalent to getRange(null, -1, false)
      */
     public Iterator<T> getAll() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return getRange(null, -1, false);
     }
 
     /**

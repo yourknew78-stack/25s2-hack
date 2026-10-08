@@ -8,7 +8,8 @@ import java.util.Iterator;
 
 public abstract class DAO<T extends HasUUID> {
     protected DAO(Comparator<T> comparator) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        this.comparator = comparator;
+        this.data = SortedDataFactory.makeSortedData(comparator);
     }
 
     protected final Comparator<T> comparator;
@@ -24,7 +25,7 @@ public abstract class DAO<T extends HasUUID> {
      * @return the element if found, null otherwise
      */
     public T get(T element) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return data.get(element);
     }
 
     /**
@@ -33,14 +34,14 @@ public abstract class DAO<T extends HasUUID> {
      * @return true if the operation was successful, false otherwise
      */
     public boolean add(T element) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return data.insert(element);
     }
 
     /**
      * Resets the DAO into its initial state, where it stores no elements
      */
     public void clear() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        data = SortedDataFactory.makeSortedData(comparator);
     }
 
     /**
@@ -48,7 +49,7 @@ public abstract class DAO<T extends HasUUID> {
      * @return the element
      */
     public Iterator<T> getAll() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return data.getAll();
     }
 
     /**
@@ -56,6 +57,6 @@ public abstract class DAO<T extends HasUUID> {
      * @return the element
      */
     public T getRandom() {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return data.getRandom();
     }
 }

@@ -13,12 +13,24 @@ public class MessageSerializer implements Serializer<Message, String[]> {
 
     @Override
     public String[] serialize(Message object) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new String[] {
+                object.id().toString(),
+                object.poster().toString(),
+                object.thread().toString(),
+                Long.toString(object.timestamp()),
+                object.message()
+        };
     }
 
     @Override
     public Message deserialize(String[] data) {
-        throw new UnsupportedOperationException("TODO: 待实现");
+        return new Message(
+                UUID.fromString(data[0]),
+                UUID.fromString(data[1]),
+                UUID.fromString(data[2]),
+                Long.parseLong(data[3]),
+                data[4]
+        );
     }
 }
 
