@@ -2,6 +2,11 @@ import dao.PostDAO;
 import dao.ReactionDAO;
 import dao.UserDAO;
 import dao.model.Message;
+import dao.model.Reaction;
+import persistentdata.DataManager;
+import persistentdata.DataPipeline;
+import java.lang.reflect.Field;
+import java.util.Iterator;
 import dao.model.Post;
 import dao.model.User;
 import org.junit.After;
@@ -194,5 +199,100 @@ public class ReactionDAOTests {
         assertEquals(Collections.singletonList(ReactionType.LOVE),
                 ReactionsFacade.getReactions(user.id(), later.id()));
         assertReactions();
+    }
+
+    @Test
+    public void moreThanFiveUsersAndEarlierReactionsMaintainIndexes() {
+        User[] participants = new User[7];
+        for (int i = 0; i < participants.length; i++) {
+            participants[i] = new User(UUID.randomUUID(), User.Role.Member,
+                    "coverageUser" + i, "password");
+            assertTrue(UserDAO.getInstance().add(participants[i]));
+            long timestamp = i == 6 ? 5 : 100 + i;
+            assertTrue(ReactionsFacade.addReaction(participants[i].id(), message.id(),
+                    ReactionType.HAPPY, timestamp));
+        }
+        // Replace one user's oldest representative, then remove it and refill.
+        assertTrue(ReactionsFacade.addReaction(participants[0].id(), message.id(), ReactionType.SAD, 1));
+        assertEquals(Arrays.asList(ReactionType.SAD, ReactionType.HAPPY),
+                ReactionsFacade.getReactions(participants[0].id(), message.id()));
+        assertTrue(ReactionsFacade.removeReaction(participants[0].id(), message.id(), ReactionType.SAD));
+        assertTrue(ReactionsFacade.removeReaction(participants[6].id(), message.id(), ReactionType.HAPPY));
+        for (int i = 0; i < 6; i++) {
+            assertEquals(Collections.singletonList(ReactionType.HAPPY),
+                    ReactionsFacade.getReactions(participants[i].id(), message.id()));
+        }
+        assertEquals(Collections.emptyList(),
+                ReactionsFacade.getReactions(participants[6].id(), message.id()));
+    }
+
+    @Test
+    public void reverseTypeAgesExerciseSummaryTruncation() {
+        ReactionType[] types = ReactionType.values();
+        for (int i = 0; i < types.length; i++) {
+            assertTrue(add(types[i], 100 - i));
+        }
+        ReactionType[] reversed = types.clone();
+        for (int i = 0; i < types.length; i++) reversed[i] = types[types.length - 1 - i];
+        assertReactions(reversed);
+        // Remove a non-earliest, non-oldest representative while keeping its type alive.
+        assertTrue(ReactionsFacade.addReaction(otherUser.id(), message.id(), types[0], 200));
+        assertTrue(ReactionsFacade.removeReaction(otherUser.id(), message.id(), types[0]));
+        assertReactions(reversed);
+    }
+
+    @Test
+    public void removingAbsentReactionExercisesDAOFailurePath() {
+        // The facade rejects missing reactions before calling this DAO method.
+        assertFalse(ReactionDAO.getInstance().removeReaction(user.id(), message.id(), ReactionType.HAPPY));
+        assertReactions();
+    }
+
+    @Test
+    public void persistenceFailureRollsBackAddition() throws Exception {
+        withFailingPersistence(() -> {
+            assertFalse(add(ReactionType.HAPPY, 10));
+            assertReactions();
+        });
+        assertTrue(add(ReactionType.HAPPY, 10));
+        assertReactions(ReactionType.HAPPY);
+    }
+
+    @Test
+    public void persistenceFailureRestoresRemovedReactionAndTimestamp() throws Exception {
+        // Seed the DAO directly so these UUIDs have not yet been persisted.
+        assertTrue(ReactionDAO.getInstance().addReaction(user.id(), message.id(), ReactionType.HAPPY, 30));
+        assertTrue(ReactionDAO.getInstance().addReaction(user.id(), message.id(), ReactionType.SAD, 20));
+        withFailingPersistence(() -> {
+            assertFalse(ReactionsFacade.removeReaction(user.id(), message.id(), ReactionType.HAPPY));
+            assertReactions(ReactionType.SAD, ReactionType.HAPPY);
+            Reaction restored = ReactionDAO.getInstance().get(
+                    new Reaction(user.id(), message.id(), ReactionType.HAPPY));
+            assertNotNull(restored);
+            assertEquals(30L, restored.timestamp());
+        });
+        assertTrue(ReactionsFacade.removeReaction(user.id(), message.id(), ReactionType.HAPPY));
+        assertReactions(ReactionType.SAD);
+    }
+
+    /** White-box fault injection for Task 4 coverage; restored even if an assertion fails.
+     * No files are deleted or permissions changed to simulate an I/O failure.
+     */
+    private void withFailingPersistence(Runnable assertions) throws Exception {
+        DataManager manager = DataManager.getInstance();
+        Field pipeline = DataManager.class.getDeclaredField("userPipeline");
+        pipeline.setAccessible(true);
+        Object original = pipeline.get(manager);
+        DataPipeline<User, String[]> failing = new DataPipeline<User, String[]>(null, null, null, "unused") {
+            @Override public void writeFrom(Iterator<User> users) {
+                throw new IllegalStateException("Injected persistence failure for coverage");
+            }
+        };
+        try {
+            pipeline.set(manager, failing);
+            assertions.run();
+        } finally {
+            pipeline.set(manager, original);
+        }
     }
 }
