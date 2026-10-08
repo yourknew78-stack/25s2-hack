@@ -32,6 +32,7 @@ public class ReactionDAO extends DAO<Reaction> {
     private final Map<Reaction, Reaction> index = new HashMap<>();
     private final Map<UserMessageKey, ArrayList<Reaction>> byUserMessage = new HashMap<>();
     private final Map<UUID, ArrayList<Reaction>> byMessage = new HashMap<>();
+    private final Map<UUID, ReactionReportIndex> reports = new HashMap<>();
 
     private ReactionDAO() {
         super(ReactionComparator.getInstance());
@@ -46,12 +47,19 @@ public class ReactionDAO extends DAO<Reaction> {
     }
 
     @Override
+    public boolean add(Reaction reaction) {
+        if (reaction == null) return false;
+        return addReaction(reaction.userUUID(), reaction.messageUUID(), reaction.type(), reaction.timestamp());
+    }
+
+    @Override
     public void clear() {
         super.clear();
         this.data = new LazySortedData<>(comparator);
         index.clear();
         byUserMessage.clear();
         byMessage.clear();
+        reports.clear();
     }
 
     public boolean addReaction(UUID userUUID, UUID messageUUID, ReactionType type, long timestamp) {
@@ -67,6 +75,7 @@ public class ReactionDAO extends DAO<Reaction> {
         bucket.add(upperBound(bucket, timestamp), reaction);
 
         byMessage.computeIfAbsent(messageUUID, k -> new ArrayList<>()).add(reaction);
+        reports.computeIfAbsent(messageUUID, k -> new ReactionReportIndex()).add(reaction);
 
         return true;
     }
@@ -84,6 +93,8 @@ public class ReactionDAO extends DAO<Reaction> {
 
         ArrayList<Reaction> messageReactions = byMessage.get(messageUUID);
         if (messageReactions != null) messageReactions.remove(removed);
+        reports.get(messageUUID).remove(removed, messageReactions);
+        if (messageReactions.isEmpty()) reports.remove(messageUUID);
 
         return true;
     }
@@ -112,6 +123,23 @@ public class ReactionDAO extends DAO<Reaction> {
 
     public boolean hasReaction(UUID userUUID, UUID messageUUID, ReactionType type) {
         return index.containsKey(new Reaction(userUUID, messageUUID, type));
+    }
+
+    /** Returns at most five current reactions, one per user, in chronological order. */
+    public List<Reaction> getOldestReactionsOnMessage(UUID messageUUID) {
+        ReactionReportIndex report = reports.get(messageUUID);
+        return report == null ? new ArrayList<>() : report.oldest();
+    }
+
+    /** Returns representatives of the five leading types, ordered by count then age. */
+    public List<Reaction> getOverviewReactionsOnMessage(UUID messageUUID) {
+        ReactionReportIndex report = reports.get(messageUUID);
+        return report == null ? new ArrayList<>() : report.overview();
+    }
+
+    public int getReactionCount(UUID messageUUID, ReactionType type) {
+        ReactionReportIndex report = reports.get(messageUUID);
+        return report == null ? 0 : report.count(type);
     }
 
     // Index of the first element with a timestamp strictly greater than the given one,
